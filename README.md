@@ -112,7 +112,7 @@ pip3 install -r requirements.txt
 - [ ] add more type annotations
 - [ ] improve logging (debug,info,warning,error)
 - [ ] setup pylint + mypy
-- [ ] automate building container image to GHCR
+- [x] automate building container image to GHCR
 - [ ] publish prometheus metrics about repo stats and job durations
 - [ ] add license
 - [ ] notifications with apprise
