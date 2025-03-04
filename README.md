@@ -130,6 +130,7 @@ pip3 install -r requirements.txt
 - [x] implement cleanup (forget/prune) job
 - [ ] implement check job
 - [x] publish Helm chart with OCI image
+- [ ] add `restic.net/` annotations on PVCs
 - [ ] add more type annotations
 - [ ] improve logging (debug,info,warning,error)
 - [ ] setup pylint + mypy
@@ -138,4 +139,5 @@ pip3 install -r requirements.txt
 - [ ] add license
 - [ ] notifications with apprise
 - [ ] implement separate backup repo per pvc
+- [ ] set up CI with k3s for end-to-end tests
 - [ ] release v1
