@@ -2,7 +2,7 @@
 apiVersion: v1
 kind: Secret
 metadata:
-  name: {{ include "restic-k8s.fullname" . }}-restic-config
+  name: {{ include "restic-k8s.fullname" . }}-config
   labels:
     {{- include "restic-k8s.labels" . | nindent 4 }}
 data:

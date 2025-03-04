@@ -1,4 +1,4 @@
-name: Build and Push Container
+name: Build and Push Container Images
 
 on:
   push:
@@ -22,7 +22,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push
+      - name: Build and push container image
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -30,3 +30,12 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+
+      - name: Package and Push Chart as OCI artifact
+        run: |
+          sed -i -E 's/appVersion: (.+)$/appVersion: ${{ github.ref_name }}/' chart/Chart.yaml
+          helm package ./chart
+          helm push ./chart-*.tgz oci://ghcr.io/${{ github.repository }}/charts

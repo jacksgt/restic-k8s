@@ -39,14 +39,14 @@ spec:
                 - "restic-k8s"
                 - "backup"
                 - "--namespace={{ .Release.Namespace }}"
-                - "--config-secret={{ include "restic-k8s.fullname" . }}-restic-config"
+                - "--config-secret={{ include "restic-k8s.fullname" . }}-config"
                 - "--image={{ .Values.image.repository }}:{{ .Values.image.tag }}"
                 {{- if .Values.restic.backup.dryRun }}
                 - "--restic-dry-run"
                 {{- end }}
               securityContext:
                 {{- toYaml .Values.securityContext | nindent 16 }}
-              image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+              image: {{ include restic-k8s.image . }}
               imagePullPolicy: {{ .Values.image.pullPolicy }}
               resources:
                 {{- toYaml .Values.resources | nindent 16 }}

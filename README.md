@@ -6,26 +6,51 @@ Uses restic under the hood for fast, reliable and encrypted backups that can be 
 This project is aimed at users who are already familiar with the Restic workflow (backup/forget/prune/check etc.).
 It aims to provide a simple adapter for Restic into the Kubernetes world and expose Restic configuration options via resource annotations.
 
+If you are not familiar with Restic, here is a quick overview highlighting the main advantages:
+
+* Restic takes backups of the local filesystem by creating *snapshots* which are stored in a remote *repository*.
+* Each snapshot is *incremental*, i.e. only differences compares to the last snapshot are uploaded and stored.
+* All content stored remotely is *fully encrypted*.
+* Restic uses *content-addressable storage* (CAS) to store the data in the remote repository as *blobs*.
+* To delete snapshots from the remote repository, the `restic forget` command can be used to expire old snapshots. This operation only removes the reference to the *blobs* (the data making up the snapshot), but does not remove the blobs themselves.
+* To delete unused blobs (data associated to deleted snapshots), the `restic prune` command is used.
+* To verify that the data stored in the remote repository is correct, the `restic check` command is used. It recomputes the checksums of the blobs stored in the repository.
+
+If you take a look at the commands implemented by the `restic-k8s` utility as well as the configuration values of the Helm chart, you will see the similarities to the typical Restic workflow.
+
 ## Status
 
 This project is in `alpha` state.
-I'm using it for daily backups of my homelab.
+I'm using it for daily backups of my homelab, aka. *"works on my machine"*.
+
 Use at your own risk.
+
+Bug reports and pull requests are welcome.
 
 ## Installation
 
 Naturally, a Helm chart is the easiest way to deploy the required resources into a Kubernetes cluster.
-The Helm chart deploys:
-
-* a `ServiceAccount` with required RBAC
-* a `CronJob` for taking backups
-* a `CronJob `
 
 ### Helm
 
-A Helm chart is available for deploying the tool with a `CronJob` into a Kubernetes cluster.
+A Helm chart is available for deploying to a Kubernetes cluster.
+The chart deploys:
 
-TODO: publish as OCI image
+* a `ServiceAccount` with required RBAC
+* a `CronJob` for taking backups
+* a `CronJob` for expiring old snapshot (`restic forget`)
+* a `CronJob` for deleting old blobs (`restic prune`)
+
+Use the following commands to get started.
+You can generate a secure `RESTIC_PASSWORD` using the command `openssl rand -hex 32` .
+For more information about setting up the storage backend (`RESTIC_REPOSITORY`), please refer to <https://restic.readthedocs.io/en/latest/030_preparing_a_new_repo.html>.
+
+```sh
+helm install restic-k8s oci://ghcr.io/jacksgt/restic-k8s --version 0.5.0 \
+    --set restic.config.RESTIC_REPOSITORY="sftp:user@example.com:/srv/restic-repo"
+    --set restic.config.RESTIC_PASSWORD="0xdeadbeef"
+```
+
 
 ### Local
 
@@ -54,10 +79,6 @@ kubectl -n restic-k8s create secret generic restic-k8s-credentials \
 # take backups!
 ./restic-k8s.py backup --pvc-label-selector app=frontend --dry-run
 ```
-
-## Set up backup storage backend
-
-TODO: https://restic.readthedocs.io/en/latest/030_preparing_a_new_repo.html
 
 ## FAQ
 
@@ -108,7 +129,7 @@ pip3 install -r requirements.txt
 
 - [x] implement cleanup (forget/prune) job
 - [ ] implement check job
-- [ ] publish Helm chart with OCI image
+- [x] publish Helm chart with OCI image
 - [ ] add more type annotations
 - [ ] improve logging (debug,info,warning,error)
 - [ ] setup pylint + mypy

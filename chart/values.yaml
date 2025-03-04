@@ -3,9 +3,9 @@
 # Declare variables to be passed into your templates.
 
 image:
-  repository: docker.io/jacksgt/kub-vol-bak
-  tag: "latest"
-  pullPolicy: Always
+  repository: ghcr.io/jacksgt/restic-k8s
+  tag: "" # falls back to `Chart.appVersion` if unspecified
+  pullPolicy: IfNotPresent
 
 imagePullSecrets: []
 nameOverride: ""

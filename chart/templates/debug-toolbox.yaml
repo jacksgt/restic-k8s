@@ -22,7 +22,7 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
       - name: toolbox
-        image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+        image: {{ include restic-k8s.image . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command: ["tail", "-f", "/dev/null"]
         securityContext:

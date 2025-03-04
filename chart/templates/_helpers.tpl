@@ -49,3 +49,11 @@ Selector labels
 app.kubernetes.io/name: {{ include "restic-k8s.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
+
+
+{{/*
+Full image path
+*/}}
+{{- define "restic-k8s.image" -}}
+{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
+{{- end }}
