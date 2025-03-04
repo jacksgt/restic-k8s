@@ -3,19 +3,19 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "kub-vol-bak.fullname" . }}-toolbox
+  name: {{ include "restic-k8s.fullname" . }}-toolbox
   labels:
-    {{- include "kub-vol-bak.labels" . | nindent 4 }}
+    {{- include "restic-k8s.labels" . | nindent 4 }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      {{- include "kub-vol-bak.labels" . | nindent 6 }}
+      {{- include "restic-k8s.labels" . | nindent 6 }}
       app.kubernetes.io/component: toolbox
   template:
     metadata:
       labels:
-        {{- include "kub-vol-bak.labels" . | nindent 8 }}
+        {{- include "restic-k8s.labels" . | nindent 8 }}
         app.kubernetes.io/component: toolbox
     spec:
       securityContext:
@@ -33,7 +33,7 @@ spec:
             readOnly: false
         envFrom:
           - secretRef:
-              name: {{ include "kub-vol-bak.fullname" . }}-restic-config
+              name: {{ include "restic-k8s.fullname" . }}-restic-config
       volumes:
         - name: tmp
           emptyDir: {}

@@ -2,7 +2,7 @@
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "kub-vol-bak.fullname" . }}-controller-role
+  name: {{ include "restic-k8s.fullname" . }}-controller-role
 rules:
 # allows creating/viewing/deleting/execing Pods in the current namespace
 - apiGroups:
@@ -34,20 +34,20 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "kub-vol-bak.fullname" . }}-controller
+  name: {{ include "restic-k8s.fullname" . }}-controller
 subjects:
 - kind: ServiceAccount
-  name: {{ include "kub-vol-bak.fullname" . }}-controller
+  name: {{ include "restic-k8s.fullname" . }}-controller
   namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "kub-vol-bak.fullname" . }}-controller-role
+  name: {{ include "restic-k8s.fullname" . }}-controller-role
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "kub-vol-bak.fullname" . }}-controller-clusterrole
+  name: {{ include "restic-k8s.fullname" . }}-controller-clusterrole
 rules:
 # allows viewing PVs and Pods in all namespaces
 - apiGroups:
@@ -71,12 +71,12 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "kub-vol-bak.fullname" . }}-controller
+  name: {{ include "restic-k8s.fullname" . }}-controller
 subjects:
 - kind: ServiceAccount
-  name: {{ include "kub-vol-bak.fullname" . }}-controller
+  name: {{ include "restic-k8s.fullname" . }}-controller
   namespace: {{ .Release.Namespace }}
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "kub-vol-bak.fullname" . }}-controller-clusterrole
+  name: {{ include "restic-k8s.fullname" . }}-controller-clusterrole

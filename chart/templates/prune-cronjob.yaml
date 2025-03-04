@@ -1,9 +1,9 @@
 apiVersion: batch/v1
 kind: CronJob
 metadata:
-  name: {{ include "kub-vol-bak.fullname" . }}-prune
+  name: {{ include "restic-k8s.fullname" . }}-prune
   labels:
-    {{- include "kub-vol-bak.labels" . | nindent 4 }}
+    {{- include "restic-k8s.labels" . | nindent 4 }}
     app.kubernetes.io/component: "prune"
 spec:
   schedule: {{ .Values.restic.prune.schedule | quote }}
@@ -13,7 +13,7 @@ spec:
     metadata:
       creationTimestamp: null
       labels:
-        {{- include "kub-vol-bak.labels" . | nindent 8 }}
+        {{- include "restic-k8s.labels" . | nindent 8 }}
         app.kubernetes.io/component: "prune"
     spec:
       backoffLimit: 0 # do not retry this job
@@ -29,17 +29,17 @@ spec:
             {{- toYaml . | nindent 12 }}
           {{- end }}
           restartPolicy: Never
-          serviceAccountName: {{ include "kub-vol-bak.fullname" . }}-controller
+          serviceAccountName: {{ include "restic-k8s.fullname" . }}-controller
           automountServiceAccountToken: true
           securityContext:
             {{- toYaml .Values.podSecurityContext | nindent 12 }}
           containers:
             - name: "restic"
               command:
-                - "kub-vol-bak"
+                - "restic-k8s"
                 - "prune"
                 - "--namespace={{ .Release.Namespace }}"
-                - "--config-secret={{ include "kub-vol-bak.fullname" . }}-restic-config"
+                - "--config-secret={{ include "restic-k8s.fullname" . }}-restic-config"
                 - "--image={{ .Values.image.repository }}:{{ .Values.image.tag }}"
                 {{- if .Values.restic.prune.dryRun }}
                 - "--restic-dry-run"

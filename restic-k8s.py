@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 __author__ = "Jack Henschel"
-__version__ = "0.3.1"
+__version__ = "0.4.0"
 __license__ = "MIT"
 
 import argparse
@@ -25,7 +25,7 @@ from kr8s.objects import Pod, Secret, PersistentVolume, PersistentVolumeClaim
 DRY_RUN = False
 
 # TODO: make these configurable
-BACKUP_NAMESPACE = "kub-vol-bak"
+BACKUP_NAMESPACE = "restic-k8s"
 BACKUP_SECRET_NAME = "backup-credentials"
 BACKUP_IMAGE = "docker.io/restic/restic:0.16.0"
 VOLUME_BACKUP_TIMEOUT = 3600  # 1h
@@ -228,7 +228,7 @@ def base_pod(name: str, namespace: str, labels: list, cmd: str) -> Pod:
                 "labels": labels,
             },
             "spec": {
-                "serviceAccountName": "kub-vol-bak-runner",  # TODO: make this configurable
+                "serviceAccountName": "restic-k8s-runner",  # TODO: make this configurable
                 "containers": [
                     {
                         "name": "restic",
@@ -442,7 +442,7 @@ def get_pv_for_pvc(pvc):
 
 def get_common_labels():
     return {
-        "app.kubernetes.io/name": "kub-vol-bak",
+        "app.kubernetes.io/name": "restic-k8s",
         "app.kubernetes.io/instance": f"{EXECUTION_ID}",
     }
 

@@ -26,6 +26,6 @@ COPY requirements.txt /etc/requirements.txt
 RUN pip3 install --break-system-packages -r /etc/requirements.txt
 
 # Add source code
-COPY kub-vol-bak.py /usr/local/bin/kub-vol-bak
+COPY restic-k8s.py /usr/local/bin/restic-k8s
 
-CMD ["kub-vol-bak", "backup"]
+CMD ["restic-k8s", "backup"]

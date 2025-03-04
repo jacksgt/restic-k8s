@@ -1,18 +1,41 @@
-# kub-vol-bak: Simple Kubernetes Volume Backups with Restic
+# restic-k8s: Simple Kubernetes Volume Backups with Restic
 
-Opinionated, straightforward backups for different Kubernetes volumes types. No CRDs, no daemons.
+Straightforward File System Backups of Kubernetes Volumes attached to Pods. No CRDs, no daemons.
+Uses restic under the hood for fast, reliable and encrypted backups that can be uploaded to a wide variety of storage providers.
+
+This project is aimed at users who are already familiar with the Restic workflow (backup/forget/prune/check etc.).
+It aims to provide a simple adapter for Restic into the Kubernetes world and expose Restic configuration options via resource annotations.
+
+## Status
+
+This project is in `alpha` state.
+I'm using it for daily backups of my homelab.
+Use at your own risk.
 
 ## Installation
 
+Naturally, a Helm chart is the easiest way to deploy the required resources into a Kubernetes cluster.
+The Helm chart deploys:
+
+* a `ServiceAccount` with required RBAC
+* a `CronJob` for taking backups
+* a `CronJob `
+
+### Helm
+
+A Helm chart is available for deploying the tool with a `CronJob` into a Kubernetes cluster.
+
+TODO: publish as OCI image
+
 ### Local
 
-Due to its simplicity, `kub-vol-bak` can be run locally easily.
-Checkout this repository, install the Python dependencies and you can start the first backup:
+Due to its simplicity `restic-k8s` can be run locally easily.
+Checkout this repository, install the Python dependencies and you can start the first backup as follows:
 
 ```sh
 # get source code
-git clone https://github.com/jacksgt/kub-vol-bak.git
-cd kub-vol-bak
+git clone https://github.com/jacksgt/restic-k8s.git
+cd restic-k8s
 
 # install Python dependencies
 python3 -m venv venv
@@ -23,20 +46,14 @@ pip3 install -r requirements.txt
 export KUBECONFIG=...
 
 # provide backup storage details
-kubectl create namespace kub-vol-bak
-kubectl -n kub-vol-bak create secret generic kub-vol-bak-credentials \
+kubectl create namespace restic-k8s
+kubectl -n restic-k8s create secret generic restic-k8s-credentials \
     --from-literal=RESTIC_PASSWORD=hunter.2 \
     --from-literal=RESTIC_REPOSITORY=b2:my-bucket
 
 # take backups!
-./kub-vol-bak.py backup --pvc-label-selector app=frontend --dry-run
+./restic-k8s.py backup --pvc-label-selector app=frontend --dry-run
 ```
-
-### Helm
-
-A Helm chart is available for deploying the tool with a `CronJob` into a Kubernetes cluster.
-
-TODO: publish as OCI image
 
 ## Set up backup storage backend
 
@@ -46,7 +63,7 @@ TODO: https://restic.readthedocs.io/en/latest/030_preparing_a_new_repo.html
 
 ## How does it work?
 
-The `kub-vol-bak.py` Python tool implements all the application logic:
+The `restic-k8s.py` Python tool implements all the application logic:
 
 * discovers of PVCs in the Kubernetes cluster
 * determines backup strategy for each PVC (depending on the type of PVC, a different mount strategy needs to be used)
@@ -64,7 +81,7 @@ kubectl annotate pvc/<NAME> backup-enabled=false
 ### How do I restore data?
 
 There are no automatic restore procedures.
-Copy the environment variables from the `kub-vol-bak-credentials` secret and export them in your local shell session.
+Copy the environment variables from the `restic-k8s-credentials` secret and export them in your local shell session.
 Then, `restic` CLI can be used to restore the data locally: <https://restic.readthedocs.io/en/latest/050_restore.html>
 
 ### What does `Exception: Unable to determine backup strategy for PVC namespace/name` mean?
@@ -87,13 +104,17 @@ python3 -m ensurepip
 pip3 install -r requirements.txt
 ```
 
-## TODO
+## Roadmap
 
-- implement cleanup job
-- publish Helm chart with OCI image
-- add more type annotations
-- improve logging (debug,info,warning,error)
-- setup pylint + mypy
-- automate building container image to GHCR
-- add license
-- notifications with apprise
+- [x] implement cleanup (forget/prune) job
+- [ ] implement check job
+- [ ] publish Helm chart with OCI image
+- [ ] add more type annotations
+- [ ] improve logging (debug,info,warning,error)
+- [ ] setup pylint + mypy
+- [ ] automate building container image to GHCR
+- [ ] publish prometheus metrics about repo stats and job durations
+- [ ] add license
+- [ ] notifications with apprise
+- [ ] implement separate backup repo per pvc
+- [ ] release v1
