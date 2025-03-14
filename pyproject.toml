@@ -1,0 +1,33 @@
+[build-system]
+requires = ["setuptools>=42", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "restic-k8s"
+dynamic = ["version"]
+description = "Straightforward File System Backups of Kubernetes Volumes attached to Pods. No CRDs, no daemons. Uses restic under the hood for fast, reliable and encrypted backups that can be uploaded to a wide variety of storage providers."
+authors = [
+    {name = "Jack Henschel", email = "jackdev@mailbox.org"}
+]
+dependencies = [
+    "kr8s==0.20.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pylint==3.3.3",
+    "basedpyright==1.28.1"
+]
+
+# https://docs.basedpyright.com/v1.20.0/configuration/config-files/
+[tool.pyright]
+include = ["src", "*.py"]
+# TODO: tighten these up in the future
+reportUnusedImport = false
+reportUnusedClass = false
+reportUnusedFunction = false
+reportUnusedVariable = false
+reportUnusedParameter = false
+reportUnknownMemberType = false
+reportConstantRedefinition = false
+reportUnusedCallResult = false

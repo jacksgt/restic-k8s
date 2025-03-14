@@ -65,7 +65,7 @@ cd restic-k8s
 # install Python dependencies
 python3 -m venv venv
 source venv/bin/activate
-pip3 install -r requirements.txt
+pip install .
 
 # provide k8s cluster connection details
 export KUBECONFIG=...
@@ -122,7 +122,8 @@ source venv/bin/activate.fish
 
 python3 -m ensurepip
 
-pip3 install -r requirements.txt
+# install base dependencies and development dependencies
+pip3 install -e .[dev]
 ```
 
 ## Roadmap
