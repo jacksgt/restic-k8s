@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 
-__author__ = "Jack Henschel"
 __version__ = "0.4.0"
-__license__ = "MIT"
 
 import argparse
-from base64 import b64decode, b64encode
+from base64 import b64decode
 import subprocess  # see also: https://pypi.org/project/python-shell/
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-import os
+# import os
 import json
 import random
 import string
 import sys
 
-from typing import List, Dict, Optional
+from typing import Callable
 
 # https://docs.kr8s.org/en/latest/
 import kr8s
@@ -25,55 +23,25 @@ from kr8s.objects import Pod, Secret, PersistentVolume, PersistentVolumeClaim
 DRY_RUN = False
 
 # TODO: make these configurable
-BACKUP_NAMESPACE = "restic-k8s"
-BACKUP_SECRET_NAME = "backup-credentials"
-BACKUP_IMAGE = "docker.io/restic/restic:0.16.0"
-VOLUME_BACKUP_TIMEOUT = 3600  # 1h
-EXECUTION_ID = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+BACKUP_NAMESPACE: str = "restic-k8s"
+BACKUP_SECRET_NAME: str = "backup-credentials"
+BACKUP_IMAGE: str = "docker.io/restic/restic:0.16.0"
+VOLUME_BACKUP_TIMEOUT: int = 3600  # 1h
+EXECUTION_ID: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
-# Restic integration can only backup volumes that are mounted by a pod and not directly from the PVC. For orphan PVC/PV pairs (without running pods), some Velero users overcame this limitation running a staging pod (i.e. a busybox or alpine container with an infinite sleep) to mount these PVC/PV pairs prior taking a Velero backup.
+# Restic integration can only backup volumes that are mounted by a pod and not directly from the PVC.
+# For orphan PVC/PV pairs (without running pods), some Velero users overcame this limitation running a staging pod
+# (i.e. a busybox or alpine container with an infinite sleep) to mount these PVC/PV pairs prior taking a Velero backup.
 # https://velero.io/docs/v1.9/restic/
 
+# type alias
+CleanupFunc = Callable[[None],None]
 
 def gen_random_chars(length: int) -> str:
     letters = string.ascii_lowercase + string.digits
     return "".join(random.choices(letters, k=length))
 
-
-def run_backup_pod(pod_name, node_name, node_path, rbc, pvc: PersistentVolumeClaim):
-    # TODO: move this logic back into the restic_backup function
-
-    restic_cmd = build_restic_backup_cmd(rbc, pvc)
-
-    # TODO: implement resource requests/limits, nice/ionice
-    pod_name = f"backup-{pvc.namespace}-{pvc.name}-{gen_random_chars(5)}"
-    labels = get_common_labels()
-    labels["app.kubernetes.io/component"] = "backup"
-    pod = base_pod(pod_name, BACKUP_NAMESPACE, labels, restic_cmd)
-    pod.spec.containers[0].volumeMounts.append(
-        {"name": "data", "mountPath": "/data", "readOnly": True},
-    )
-    pod.spec.volumes.append(
-        {
-            "name": "data",
-            "hostPath": {"path": node_path, "type": "Directory"},
-        },
-    )
-    pod.spec.nodeName = node_name
-
-    if DRY_RUN:
-        print(json.dumps(pod.raw))
-        return
-
-    run_pod(pod)
-
-    def cleanup():
-        pod.delete()
-
-    return pod, cleanup
-
-
-def get_pod_duration(pod) -> timedelta:
+def get_pod_duration(pod: Pod) -> timedelta:
     start_time = parse_k8s_timestamp(pod.status.startTime)
     time_ready = [
         x.lastTransitionTime
@@ -122,10 +90,10 @@ class ResticBackupConfig:
     # pv_name: str
     # hostPath: Optional[str] = None
     exclude_caches: bool = True
-    # env_vars: Dict[str,str] = field(default_factory=dict)
-    excludes: List[str] = field(default_factory=list)
-    tags: List[str] = field(default_factory=list)
-    metadata: Dict[str, str] = field(default_factory=dict)
+    # env_vars: dict[str,str] = field(default_factory=dict)
+    excludes: list[str] = field(default_factory=list)
+    tags: list[str] = field(default_factory=list)
+    metadata: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass
@@ -143,18 +111,50 @@ class ResticForgetConfig:
     keep_monthly: int
     keep_yearly: int
     keep_within: str
-    # keep_tags: List[str]
+    # keep_tags: list[str]
 
 
 @dataclass
 class ResticPruneConfig:
     dry_run: bool
 
+def run_backup_pod(pod_name: str, node_name: str, node_path: str,
+                   rbc: ResticBackupConfig, pvc: PersistentVolumeClaim) -> tuple[Pod, CleanupFunc|None]:
+    # TODO: move this logic back into the restic_backup function
+    restic_cmd = build_restic_backup_cmd(rbc, pvc)
 
-def backup_mounted_pvc_from_pod(pvc, pv, pod, rbc):
-    node_name = pod.spec.nodeName
-    node_path = f"/var/lib/kubelet/pods/{pod.metadata.uid}/volumes/kubernetes.io~csi/{pv.name}/mount/"
-    run_backup_pod(
+    # TODO: implement resource requests/limits, nice/ionice
+    pod_name = f"backup-{pvc.namespace}-{pvc.name}-{gen_random_chars(5)}"
+    labels = get_common_labels()
+    labels["app.kubernetes.io/component"] = "backup"
+    pod = base_pod(pod_name, BACKUP_NAMESPACE, labels, restic_cmd)
+    pod.spec.containers[0].volumeMounts.append(
+        {"name": "data", "mountPath": "/data", "readOnly": True},
+    )
+    pod.spec.volumes.append(
+        {
+            "name": "data",
+            "hostPath": {"path": node_path, "type": "Directory"},
+        },
+    )
+    pod.spec.nodeName = node_name
+
+    if DRY_RUN:
+        print(json.dumps(pod.raw))
+        return pod, None
+
+    run_pod(pod)
+
+    def cleanup() -> None:
+        pod.delete()
+
+    return pod, cleanup
+
+
+def backup_mounted_pvc_from_pod(pvc: PersistentVolumeClaim, pv: PersistentVolume, pod: Pod, rbc: ResticBackupConfig):
+    node_name: str = pod.spec.nodeName
+    node_path: str = f"/var/lib/kubelet/pods/{pod.metadata.uid}/volumes/kubernetes.io~csi/{pv.name}/mount/"
+    _ = run_backup_pod(
         f"backup-{pvc.namespace}-{pvc.name}-{gen_random_chars(5)}",
         node_name,
         node_path,
@@ -190,7 +190,7 @@ def restic_prune(config: ResticPruneConfig):
     run_pod(pod)
 
 
-def build_restic_forget_cmd(config: ResticForgetConfig, pvc) -> str:
+def build_restic_forget_cmd(config: ResticForgetConfig, pvc: PersistentVolumeClaim) -> str:
     # TODO: write test
     restic_cmd: str = (
         f"restic forget --verbose --group-by tags,paths --tag namespace={pvc.namespace},persistentvolumeclaim={pvc.name}"
@@ -217,7 +217,7 @@ def build_restic_forget_cmd(config: ResticForgetConfig, pvc) -> str:
     return restic_cmd
 
 
-def base_pod(name: str, namespace: str, labels: list, cmd: str) -> Pod:
+def base_pod(name: str, namespace: str, labels: dict[str,str], cmd: str) -> Pod:
     return Pod(
         {
             "apiVersion": "v1",
@@ -265,7 +265,7 @@ def base_pod(name: str, namespace: str, labels: list, cmd: str) -> Pod:
     )
 
 
-def restic_forget(config: ResticForgetConfig, pvc):
+def restic_forget(config: ResticForgetConfig, pvc: PersistentVolumeClaim):
     restic_cmd = build_restic_forget_cmd(config, pvc)
 
     pod_name = f"forget-{pvc.name}-{gen_random_chars(5)}"
@@ -291,7 +291,7 @@ def run_pod(pod: Pod):
     # TODO: need to catch other conditions such as Pod Error, ImagePullBackOff, InvalidPodConfiguration ...
     pod.wait("condition=Ready=true")
 
-    for line in pod.logs(follow=True, timeout=None):
+    for line in pod.logs(follow=True, timeout=0):
         print("> ", line)
 
     pod.wait("condition=Ready=false")
@@ -305,10 +305,10 @@ def run_pod(pod: Pod):
 
 
 # wrapper around kubectl because kr8s does not support pod exec: https://github.com/kr8s-org/kr8s/issues/169
-def pod_exec(pod: Pod, container: str, command: List[str]) -> (str, str):
-    namespace = pod.namespace
+def pod_exec(pod: Pod, container: str, command: list[str]) -> tuple[str, str]:
+    namespace: str = pod.metadata.namespace
     pod_name = pod.name
-    cmd = [
+    cmd: list[str] = [
         "kubectl",
         "exec",
         "-n",
@@ -317,7 +317,8 @@ def pod_exec(pod: Pod, container: str, command: List[str]) -> (str, str):
         "-c",
         container,
         "--",
-    ] + command
+    ]
+    cmd += command
     print(f"cmd: {cmd}")
     proc = subprocess.run(
         cmd,
@@ -329,7 +330,7 @@ def pod_exec(pod: Pod, container: str, command: List[str]) -> (str, str):
 
 
 # implements logic for parsing nodeAffinity
-def get_node_from_pv(pv) -> str:
+def get_node_from_pv(pv: PersistentVolume) -> str:
     if hasattr(pv.spec, "nodeAffinity"):
         for node_selector in pv.spec.nodeAffinity.required.nodeSelectorTerms:
             for exp in node_selector.matchExpressions:
@@ -339,11 +340,11 @@ def get_node_from_pv(pv) -> str:
     raise Exception(f"Unable to determine node for pv: {pv}")
 
 
-def get_pvc_from_pv(pv) -> (str, str):
+def get_pvc_from_pv(pv: PersistentVolume) -> tuple[str, str]:
     return (pv.spec.claimRef.name, pv.spec.claimRef.namespace)
 
 
-def backup_hostpath_volume(pv, rbc, pvc):
+def backup_hostpath_volume(pv: PersistentVolume, rbc: ResticBackupConfig, pvc: PersistentVolumeClaim):
     path = str
     if hasattr(pv.spec, "hostPath"):
         path = pv.spec.hostPath.path
@@ -358,7 +359,7 @@ def backup_hostpath_volume(pv, rbc, pvc):
     )  # better use volume.kubernetes.io/selected-node annotation on pvc?
 
     # run pod on the node mounting hostPath
-    run_backup_pod(
+    _ = run_backup_pod(
         f"backup-{pvc.namespace}-{pvc.name}-{gen_random_chars(5)}",
         node_name,
         path,
@@ -367,7 +368,7 @@ def backup_hostpath_volume(pv, rbc, pvc):
     )
 
 
-def build_restic_backup_cmd(bc, pvc) -> str:
+def build_restic_backup_cmd(bc: ResticBackupConfig, pvc: PersistentVolumeClaim) -> str:
     # https://restic.readthedocs.io/en/stable/040_backup.html
     # We set the `--group-by` parameter so restic can easily identify the parent snapshot,
     # since in our case the hostnames (pod names) vary over time.
@@ -389,10 +390,10 @@ def build_restic_backup_cmd(bc, pvc) -> str:
 
 
 def get_env_from_secret(secret_name, namespace_name) -> dict[str, str]:
-    secret = Secret.get(secret_name, namespace=namespace_name)
-    env = {}
+    secret: Secret = Secret.get(secret_name, namespace=namespace_name)
+    env: dict[str,str] = {}
     for k, v in secret.raw["data"].items():
-        env[k] = b64decode(v)
+        env[str(k)] = str(b64decode(v))
 
     return env
 
@@ -435,19 +436,19 @@ def get_pod_mounting_pvc(pvc):
                 return pod
 
 
-def get_pv_for_pvc(pvc):
+def get_pv_for_pvc(pvc: PersistentVolumeClaim) -> PersistentVolume:
     pv = PersistentVolume.get(pvc.spec.volumeName)
     return pv
 
 
-def get_common_labels():
+def get_common_labels()-> dict[str,str]:
     return {
         "app.kubernetes.io/name": "restic-k8s",
         "app.kubernetes.io/instance": f"{EXECUTION_ID}",
     }
 
 
-def get_excludes_from_pvc(pvc):
+def get_excludes_from_pvc(pvc: PersistentVolumeClaim):
     raw = pvc.annotations.get("backup-excludes-json", "[]")
     parsed = json.loads(raw)
     return parsed
@@ -457,7 +458,7 @@ def get_excludes_from_pvc(pvc):
 # - backed by a "local" PV
 # - backed by a "hostPath" PV
 # - mounted by a running Pod
-def restic_backup(pvc, restic_dry_run: bool):
+def restic_backup(pvc: PersistentVolumeClaim, restic_dry_run: bool):
     annotation_key = "backup-enabled"
     if pvc.annotations.get(annotation_key) == "false":
         print(
@@ -510,10 +511,10 @@ def restic_backup(pvc, restic_dry_run: bool):
 #         backup_pvc(pvc)
 
 
-def get_matching_pvcs(label_selector) -> list:
+def get_matching_pvcs(label_selector) -> list[PersistentVolumeClaim]:
     return kr8s.get(
         "persistentvolumeclaims", namespace=kr8s.ALL, label_selector=label_selector
-    )
+    ) # pyright: ignore[reportReturnType]
 
 
 def main(args):
@@ -544,7 +545,7 @@ def main(args):
     else:
         initialize_repo()
 
-    pvc_label_selectors: Dict[str, str] = {}
+    pvc_label_selectors: dict[str, str] = {}
     if args.pvc_label_selector:
         labels = args.pvc_label_selector.split(",")
         for l in labels:
@@ -706,13 +707,13 @@ if __name__ == "__main__":
         "--keep-yearly", action="store", help="Keep the last N yearly snapshots."
     )
 
-    # # Optional verbosity counter (eg. -v, -vv, -vvv, etc.)
-    # parser.add_argument(
-    #     "-v",
-    #     "--verbose",
-    #     action="count",
-    #     default=0,
-    #     help="Verbosity (-v, -vv, etc)")
+    # Optional verbosity counter (eg. -v, -vv, -vvv, etc.)
+    parser.add_argument(
+        "-v",
+        "--verbose",
+        action="count",
+        default=0,
+        help="Verbosity (-v, -vv, etc)")
 
     parser.add_argument(
         "--version",
