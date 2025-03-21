@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 import argparse
 from base64 import b64decode
@@ -117,6 +117,11 @@ class ResticForgetConfig:
 @dataclass
 class ResticPruneConfig:
     dry_run: bool
+
+
+@dataclass
+class ResticCheckConfig:
+    read_data_subset: str
 
 def run_backup_pod(pod_name: str, node_name: str, node_path: str,
                    rbc: ResticBackupConfig, pvc: PersistentVolumeClaim) -> tuple[Pod, CleanupFunc|None]:
@@ -279,6 +284,34 @@ def restic_forget(config: ResticForgetConfig, pvc: PersistentVolumeClaim):
         return
 
     run_pod(pod)
+
+
+# check if repository metadata is ok and verify some of the data blobs
+# https://restic.readthedocs.io/en/stable/045_working_with_repos.html#checking-integrity-and-consistency
+def restic_check(config: ResticCheckConfig) -> None:
+    restic_cmd = build_restic_check_cmd(config)
+
+    pod_name = f"check-{gen_random_chars(5)}"
+    labels = get_common_labels()
+    labels["app.kubernetes.io/component"] = "check"
+
+    pod = base_pod(pod_name, BACKUP_NAMESPACE, labels, restic_cmd)
+
+    if DRY_RUN:
+        print(json.dumps(pod.raw))
+        return
+
+    run_pod(pod)
+
+def build_restic_check_cmd(config: ResticCheckConfig) -> str:
+    # TODO: write test
+    restic_cmd: str = (
+        "restic check"
+    )
+    if config.read_data_subset:
+        restic_cmd += "--read-data-subset {config.read_data_subset}"
+
+    return restic_cmd
 
 
 def run_pod(pod: Pod):
@@ -593,6 +626,12 @@ def main(args):
 
         # run pruning on the entire repository
         restic_prune(config)
+    elif args.action == "check":
+        config = ResticCheckConfig(
+            read_data_subset=args.read_data_subset,
+        )
+        # run check on the entire repository
+        restic_check(config)
 
     else:
         print(f"Error: unsupported action '{args.action}'")
@@ -604,7 +643,7 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "action",
-        help="One of: backup, forget",
+        help="One of: backup, forget, prune, check",
         default="backup",
     )
 
@@ -705,6 +744,12 @@ if __name__ == "__main__":
 
     parser.add_argument(
         "--keep-yearly", action="store", help="Keep the last N yearly snapshots."
+    )
+
+    parser.add_argument(
+        "--read-data-subset", action="store",
+        help="How much data to read when when performing a repository integrity check (e.g. `2/5`)",
+        default="25%",
     )
 
     # Optional verbosity counter (eg. -v, -vv, -vvv, etc.)

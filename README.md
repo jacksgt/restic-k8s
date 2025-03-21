@@ -129,7 +129,7 @@ pip3 install -e .[dev]
 ## Roadmap
 
 - [x] implement cleanup (forget/prune) job
-- [ ] implement check job
+- [x] implement check job
 - [x] publish Helm chart with OCI image
 - [ ] add `restic.net/` annotations on PVCs
 - [ ] add more type annotations

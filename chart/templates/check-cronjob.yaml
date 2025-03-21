@@ -1,0 +1,62 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ include "restic-k8s.fullname" . }}-check
+  labels:
+    {{- include "restic-k8s.labels" . | nindent 4 }}
+    app.kubernetes.io/component: "check"
+spec:
+  schedule: {{ .Values.restic.check.schedule | quote }}
+  suspend: {{ .Values.restic.check.suspend }}
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    metadata:
+      creationTimestamp: null
+      labels:
+        {{- include "restic-k8s.labels" . | nindent 8 }}
+        app.kubernetes.io/component: "check"
+    spec:
+      backoffLimit: 0 # do not retry this job
+      template:
+        metadata:
+          {{- with .Values.podAnnotations }}
+          annotations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+        spec:
+          {{- with .Values.imagePullSecrets }}
+          imagePullSecrets:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          restartPolicy: Never
+          serviceAccountName: {{ include "restic-k8s.fullname" . }}-controller
+          automountServiceAccountToken: true
+          securityContext:
+            {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          containers:
+            - name: "restic"
+              command:
+                - "restic-k8s"
+                - "check"
+                - "--namespace={{ .Release.Namespace }}"
+                - "--config-secret={{ include "restic-k8s.fullname" . }}-restic-config"
+                - "--image={{ .Values.image.repository }}:{{ .Values.image.tag }}"
+                - "--read-data-subset={{ .Values.restic.check.readDataSubset }}"
+              securityContext:
+                {{- toYaml .Values.securityContext | nindent 16 }}
+              image: {{ include restic-k8s.image . }}
+              imagePullPolicy: {{ .Values.image.pullPolicy }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+          {{- with .Values.nodeSelector }}
+          nodeSelector:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.affinity }}
+          affinity:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.tolerations }}
+          tolerations:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}

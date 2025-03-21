@@ -26,7 +26,8 @@ restic:
 
   forget:
     suspend: false
-    schedule: "44 3 * * 1"
+    # once a week
+    schedule: "44 3 * * 2"
     # according to which policy snapshots should be retained
     keepPolicy:
       last: 0
@@ -40,15 +41,18 @@ restic:
 
   # When data associated to deleted snapshots should be deleted
   prune:
-    schedule: "33 4 * * 1"
+    # once a week
+    schedule: "33 4 * * 2"
     suspend: false
     dryRun: false
 
   # Regularly check (some of) the data stored in the remote repository for errors
   # https://restic.readthedocs.io/en/stable/045_working_with_repos.html#checking-integrity-and-consistency
   check:
-    # TODO: implement me
+    # once a week
+    schedule: "5 22 * * 1"
     suspend: false
+    readDataSubset: "25%"
 
 # runs a special deployment with restic inside that allows you to perform operations on the repository backend
 # e.g. `kubectl exec -it deploy/restic-toolbox -- restic stats`
