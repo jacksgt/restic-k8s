@@ -82,14 +82,14 @@ def pretty_duration(seconds_f: float):
 # https://docs.python.org/3/library/dataclasses.html
 @dataclass
 class ResticBackupConfig:
-    dry_run: bool
+    dry_run: bool = False
     # repository: str
     # password: str
     # path: str
     # # node: str
     # pv_name: str
     # hostPath: Optional[str] = None
-    exclude_caches: bool = True
+    exclude_caches: bool = False
     # env_vars: dict[str,str] = field(default_factory=dict)
     excludes: list[str] = field(default_factory=list)
     tags: list[str] = field(default_factory=list)
@@ -103,14 +103,14 @@ class ResticGlobalConfig:
 
 @dataclass
 class ResticForgetConfig:
-    dry_run: bool
-    keep_last: int
-    keep_hourly: int
-    keep_daily: int
-    keep_weekly: int
-    keep_monthly: int
-    keep_yearly: int
-    keep_within: str
+    dry_run: bool = False
+    keep_last: int | None = None
+    keep_hourly: int | None = None
+    keep_daily: int | None = None
+    keep_weekly: int | None = None
+    keep_monthly: int | None = None
+    keep_yearly: int | None = None
+    keep_within: str | None = None
     # keep_tags: list[str]
 
 
@@ -196,7 +196,6 @@ def restic_prune(config: ResticPruneConfig):
 
 
 def build_restic_forget_cmd(config: ResticForgetConfig, pvc: PersistentVolumeClaim) -> str:
-    # TODO: write test
     restic_cmd: str = (
         f"restic forget --verbose --group-by tags,paths --tag namespace={pvc.namespace},persistentvolumeclaim={pvc.name}"
     )
@@ -304,12 +303,11 @@ def restic_check(config: ResticCheckConfig) -> None:
     run_pod(pod)
 
 def build_restic_check_cmd(config: ResticCheckConfig) -> str:
-    # TODO: write test
     restic_cmd: str = (
         "restic check"
     )
     if config.read_data_subset:
-        restic_cmd += "--read-data-subset {config.read_data_subset}"
+        restic_cmd += f" --read-data-subset={config.read_data_subset}"
 
     return restic_cmd
 
@@ -418,6 +416,8 @@ def build_restic_backup_cmd(bc: ResticBackupConfig, pvc: PersistentVolumeClaim) 
 
     if bc.dry_run:
         restic_cmd += " --dry-run"
+
+    # TODO: fetch overrides from PVC annotations
 
     return restic_cmd
 

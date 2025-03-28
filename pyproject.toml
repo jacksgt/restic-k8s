@@ -15,8 +15,9 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    "basedpyright==1.28.1",
     "pylint==3.3.3",
-    "basedpyright==1.28.1"
+    "pytest==8.3.5",
 ]
 
 # https://docs.basedpyright.com/v1.20.0/configuration/config-files/

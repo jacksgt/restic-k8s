@@ -126,6 +126,12 @@ python3 -m ensurepip
 pip3 install -e .[dev]
 ```
 
+To run the unit tests, use:
+
+```sh
+pytest
+```
+
 ## Roadmap
 
 - [x] implement cleanup (forget/prune) job
