@@ -77,14 +77,14 @@ kubectl -n restic-k8s create secret generic restic-k8s-credentials \
     --from-literal=RESTIC_REPOSITORY=b2:my-bucket
 
 # take backups!
-./restic-k8s.py backup --pvc-label-selector app=frontend --dry-run
+./restic_k8s.py backup --pvc-label-selector app=frontend --dry-run
 ```
 
 ## FAQ
 
 ## How does it work?
 
-The `restic-k8s.py` Python tool implements all the application logic:
+The `restic_k8s.py` Python tool implements all the application logic:
 
 * discovers of PVCs in the Kubernetes cluster
 * determines backup strategy for each PVC (depending on the type of PVC, a different mount strategy needs to be used)

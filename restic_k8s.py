@@ -422,7 +422,7 @@ def build_restic_backup_cmd(bc: ResticBackupConfig, pvc: PersistentVolumeClaim) 
     return restic_cmd
 
 
-def get_env_from_secret(secret_name, namespace_name) -> dict[str, str]:
+def get_env_from_secret(secret_name: str, namespace_name: str) -> dict[str, str]:
     secret: Secret = Secret.get(secret_name, namespace=namespace_name)
     env: dict[str,str] = {}
     for k, v in secret.raw["data"].items():
