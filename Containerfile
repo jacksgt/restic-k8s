@@ -26,7 +26,7 @@ COPY pyproject.toml .
 RUN pip3 install --break-system-packages .
 
 # Add source code
-COPY restic-k8s.py .
+COPY restic_k8s.py .
 
 # Make CLI command available
 RUN ln -s /app/restic_k8s.py /usr/local/bin/restic-k8s

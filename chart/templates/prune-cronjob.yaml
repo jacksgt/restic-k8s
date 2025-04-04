@@ -46,7 +46,7 @@ spec:
                 {{- end }}
               securityContext:
                 {{- toYaml .Values.securityContext | nindent 16 }}
-              image: {{ include restic-k8s.image . }}
+              image: {{ include "restic-k8s.image" . }}
               imagePullPolicy: {{ .Values.image.pullPolicy }}
               resources:
                 {{- toYaml .Values.resources | nindent 16 }}

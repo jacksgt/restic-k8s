@@ -22,7 +22,7 @@ spec:
         {{- toYaml .Values.podSecurityContext | nindent 8 }}
       containers:
       - name: toolbox
-        image: {{ include restic-k8s.image . }}
+        image: {{ include "restic-k8s.image" . }}
         imagePullPolicy: {{ .Values.image.pullPolicy }}
         command: ["tail", "-f", "/dev/null"]
         securityContext:
@@ -33,7 +33,7 @@ spec:
             readOnly: false
         envFrom:
           - secretRef:
-              name: {{ include "restic-k8s.fullname" . }}-restic-config
+              name: {{ include "restic-k8s.fullname" . }}-config
       volumes:
         - name: tmp
           emptyDir: {}
