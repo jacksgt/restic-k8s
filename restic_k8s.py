@@ -14,7 +14,7 @@ import random
 import string
 import sys
 
-from typing import Callable
+from typing import Callable, Iterator
 
 # https://docs.kr8s.org/en/latest/
 import kr8s
@@ -28,6 +28,8 @@ BACKUP_SECRET_NAME: str = "backup-credentials"
 BACKUP_IMAGE: str = "docker.io/restic/restic:0.16.0"
 VOLUME_BACKUP_TIMEOUT: int = 3600  # 1h
 EXECUTION_ID: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+
+ANNOTATION_BACKUP_ENABLED: str = "restic.net/backup-enabled"
 
 # Restic integration can only backup volumes that are mounted by a pod and not directly from the PVC.
 # For orphan PVC/PV pairs (without running pods), some Velero users overcame this limitation running a staging pod
@@ -318,16 +320,23 @@ def run_pod(pod: Pod):
     # launch pod
     pod.create()
 
-    time.sleep(1)
-    # TODO: need to catch other conditions such as Pod Error, ImagePullBackOff, InvalidPodConfiguration ...
-    pod.wait("condition=Ready=true")
+    while not pod.ready():
+        # TODO: need to catch other conditions such as Pod Error, ImagePullBackOff, InvalidPodConfiguration ...
+        if pod.status.get("phase") in ["Succeeded", "Failed"]:
+            break
 
-    for line in pod.logs(follow=True, timeout=0):
+        # wait for the pod to start
+        time.sleep(1)
+
+    # stream logs
+    for line in pod.logs(follow=True, timeout=3600):
         print("> ", line)
 
+    # wait for pod to finish
     pod.wait("condition=Ready=false")
-    time.sleep(1)
-    pod.refresh()
+    while pod.status.get("phase") in ["Running"]:
+        time.sleep(1)
+        pod.refresh()
 
     duration = get_pod_duration(pod)
     print(
@@ -426,7 +435,7 @@ def get_env_from_secret(secret_name: str, namespace_name: str) -> dict[str, str]
     secret: Secret = Secret.get(secret_name, namespace=namespace_name)
     env: dict[str,str] = {}
     for k, v in secret.raw["data"].items():
-        env[str(k)] = str(b64decode(v))
+        env[str(k)] = b64decode(v).decode('utf-8')
 
     return env
 
@@ -492,13 +501,6 @@ def get_excludes_from_pvc(pvc: PersistentVolumeClaim):
 # - backed by a "hostPath" PV
 # - mounted by a running Pod
 def restic_backup(pvc: PersistentVolumeClaim, restic_dry_run: bool):
-    annotation_key = "backup-enabled"
-    if pvc.annotations.get(annotation_key) == "false":
-        print(
-            f"Ignoring PVC {pvc.namespace}/{pvc.name} due to annotation '{annotation_key}=false'"
-        )
-        return
-
     # figure out how we can access the volume:
     pv = get_pv_for_pvc(pvc)
     mounting_pod = get_pod_mounting_pvc(pvc)
@@ -549,6 +551,20 @@ def get_matching_pvcs(label_selector) -> list[PersistentVolumeClaim]:
         "persistentvolumeclaims", namespace=kr8s.ALL, label_selector=label_selector
     ) # pyright: ignore[reportReturnType]
 
+def filter_pvcs(pvcs: list[PersistentVolumeClaim]) -> Iterator[PersistentVolumeClaim]:
+    for pvc in pvcs:
+        if pvc.metadata.get("deletionTimestamp") is not None:
+            print(f"WARN: Ignoring PVC '{pvc.metadata.namespace}/{pvc.metadata.name}' because it is terminating")
+        elif pvc.status is None or pvc.status.get("phase") is None:
+            print(f"WARN: Ignoring PVC '{pvc.metadata.namespace}/{pvc.metadata.name}' because its status is unknown")
+        elif pvc.status.phase != "Bound":
+            print(f"WARN: Ignoring PVC '{pvc.metadata.namespace}/{pvc.metadata.name}' because its status is '{pvc.status.phase}'")
+        else:
+            if pvc.metadata.get("annotations", {}).get(ANNOTATION_BACKUP_ENABLED) == "false":
+                            print(f"INFO: Skipping PVC '{pvc.metadata.namespace}/{pvc.metadata.name}' due to its label {ANNOTATION_BACKUP_ENABLED}=false")
+            else:
+                yield(pvc)
+
 
 def main(args):
     if args.dry_run is True:
@@ -590,7 +606,7 @@ def main(args):
 
     if args.action == "backup":
         # run restic backup for each PVC
-        for pvc in get_matching_pvcs(pvc_label_selectors):
+        for pvc in filter_pvcs(get_matching_pvcs(pvc_label_selectors)):
             restic_backup(pvc, args.restic_dry_run)
 
         if args.cleanup:
@@ -616,7 +632,7 @@ def main(args):
         )
 
         # run restic forget for each PVC
-        for pvc in get_matching_pvcs(pvc_label_selectors):
+        for pvc in filter_pvcs(get_matching_pvcs(pvc_label_selectors)):
             restic_forget(config, pvc)
 
     elif args.action == "prune":
