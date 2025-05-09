@@ -39,7 +39,7 @@ spec:
                 - "restic-k8s"
                 - "check"
                 - "--namespace={{ .Release.Namespace }}"
-                - "--config-secret={{ include "restic-k8s.fullname" . }}-restic-config"
+                - "--config-secret={{ include "restic-k8s.fullname" . }}-config"
                 - "--image={{ .Values.image.repository }}:{{ .Values.image.tag }}"
                 - "--read-data-subset={{ .Values.restic.check.readDataSubset }}"
               securityContext:

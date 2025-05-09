@@ -63,3 +63,191 @@ _restic_backup_common_cmd = "restic backup --one-file-system --group-by tags,pat
     ], indirect=["example_pvc_with_various_annotations"])
 def test_build_restic_backup_cmd(config,example_pvc_with_various_annotations,expected_cmd):
     assert build_restic_backup_cmd(config, example_pvc_with_various_annotations) == expected_cmd
+
+@pytest.fixture
+def example_pvcs():
+    return [
+    # this PVC should be excluded because it's not ready (Pending)
+    PersistentVolumeClaim({
+        "apiVersion": "v1",
+        "kind": "PersistentVolumeClaim",
+        "metadata": {
+            "creationTimestamp": "2025-04-01T15:44:18Z",
+            "finalizers": [
+                "kubernetes.io/pvc-protection"
+            ],
+            "labels": {
+                "app": "minio",
+                "release": "minio"
+            },
+            "name": "pvc-not-ready",
+            "namespace": "minio",
+            "resourceVersion": "16882",
+            "uid": "0bc47a1b-5b1b-45f7-97d6-08cf75440890"
+        },
+        "spec": {
+            "accessModes": [
+                "ReadWriteOnce"
+            ],
+            "resources": {
+                "requests": {
+                    "storage": "500Gi"
+                }
+            },
+            "storageClassName": "standard",
+            "volumeMode": "Filesystem"
+        },
+        "status": {
+            "phase": "Pending"
+        }
+    }),
+    # this PVC should be excluded because it's not ready (no status)
+    PersistentVolumeClaim({
+        "apiVersion": "v1",
+        "kind": "PersistentVolumeClaim",
+        "metadata": {
+            "creationTimestamp": "2025-04-01T15:44:18Z",
+            "finalizers": [
+                "kubernetes.io/pvc-protection"
+            ],
+            "labels": {
+                "app": "minio",
+                "release": "minio"
+            },
+            "name": "pvc-no-status",
+            "namespace": "minio",
+            "resourceVersion": "16882",
+            "uid": "0bc47a1b-5b1b-45f7-97d6-08cf75440890"
+        },
+        "spec": {
+            "accessModes": [
+                "ReadWriteOnce"
+            ],
+            "resources": {
+                "requests": {
+                    "storage": "500Gi"
+                }
+            },
+            "storageClassName": "standard",
+            "volumeMode": "Filesystem"
+        },
+        "status": {}
+    }),
+    # this PVC should be excluded because it's terminating
+    PersistentVolumeClaim({
+        "apiVersion": "v1",
+        "kind": "PersistentVolumeClaim",
+        "metadata": {
+            "creationTimestamp": "2025-04-01T15:44:18Z",
+            "deletionTimestamp": "2025-04-01T15:50:00Z",
+            "finalizers": [
+                "kubernetes.io/pvc-protection"
+            ],
+            "labels": {
+                "app": "minio",
+                "release": "minio"
+            },
+            "name": "pvc-terminating",
+            "namespace": "minio",
+            "resourceVersion": "16882",
+            "uid": "0bc47a1b-5b1b-45f7-97d6-08cf75440890"
+        },
+        "spec": {
+            "accessModes": [
+                "ReadWriteOnce"
+            ],
+            "resources": {
+                "requests": {
+                    "storage": "500Gi"
+                }
+            },
+            "storageClassName": "standard",
+            "volumeMode": "Filesystem"
+        },
+        "status": {
+            "phase": "Pending"
+        }
+    }),
+    # this PVC should be included
+    PersistentVolumeClaim({
+        "apiVersion": "v1",
+        "kind": "PersistentVolumeClaim",
+        "metadata": {
+            "creationTimestamp": "2025-04-01T15:44:18Z",
+            "finalizers": [
+                "kubernetes.io/pvc-protection"
+            ],
+            "name": "pvc-ok",
+            "namespace": "minio",
+            "resourceVersion": "16882",
+            "uid": "0bc47a1b-5b1b-45f7-97d6-08cf75440890"
+        },
+        "spec": {
+            "accessModes": [
+                "ReadWriteOnce"
+            ],
+            "resources": {
+                "requests": {
+                    "storage": "1Gi"
+                }
+            },
+            "storageClassName": "standard",
+            "volumeMode": "Filesystem",
+            "volumeName": "pvc-a8370b0e-d199-46a8-8908-da459b901eb3"
+        },
+        "status": {
+            "phase": "Bound",
+            "accessModes": ["ReadWriteOnce"],
+            "capacity": {
+                "storage": "1Gi",
+            },
+        }
+    }),
+    # this PVC should be excluded because backups are disabled for it
+    PersistentVolumeClaim({
+        "apiVersion": "v1",
+        "kind": "PersistentVolumeClaim",
+        "metadata": {
+            "creationTimestamp": "2025-04-01T15:44:18Z",
+            "finalizers": [
+                "kubernetes.io/pvc-protection"
+            ],
+            "annotations": {
+                "restic.net/backup-enabled": "false",
+            },
+            "name": "pvc-no-backup",
+            "namespace": "minio",
+            "resourceVersion": "16882",
+            "uid": "0bc47a1b-5b1b-45f7-97d6-08cf75440890"
+        },
+        "spec": {
+            "accessModes": [
+                "ReadWriteOnce"
+            ],
+            "resources": {
+                "requests": {
+                    "storage": "1Gi"
+                }
+            },
+            "storageClassName": "standard",
+            "volumeMode": "Filesystem",
+            "volumeName": "pvc-a8370b0e-d199-46a8-8908-da459b901eb3"
+        },
+        "status": {
+            "phase": "Bound",
+            "accessModes": ["ReadWriteOnce"],
+            "capacity": {
+                "storage": "1Gi",
+            },
+        }
+    }),
+]
+
+def test_filter_pvcs(example_pvcs):
+    result = list(filter_pvcs(example_pvcs))
+    assert len(result) == 1
+    assert result[0].metadata.name != "pvc-not-bound"
+    assert result[0].metadata.name != "pvc-no-status"
+    assert result[0].metadata.name != "pvc-terminating"
+    assert result[0].metadata.name != "pvc-no-backup"
+    assert result[0].metadata.name == "pvc-ok"

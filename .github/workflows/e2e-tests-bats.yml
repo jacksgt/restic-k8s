@@ -1,0 +1,92 @@
+name: End-to-end tests with BATS
+
+on:
+  push:
+    # paths:
+    #   - '.github/workflows/**'
+    #   - 'chart/**'
+    #   - 'e2e-tests/**'
+    #   - 'pyproject.toml'
+    #   - 'restic_k8s.py'
+
+  workflow_dispatch:  # Manual trigger option
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Trigger build workflow
+      uses: peter-evans/repository-dispatch@v2
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        event-type: trigger-build
+        client-payload: '{"ref": "${{ github.ref }}", "sha": "${{ github.sha }}"}'
+
+    - name: Wait for build workflow
+      uses: fountainhead/action-wait-for-check@v1.1.0
+      with:
+        token: ${{ secrets.GITHUB_TOKEN }}
+        checkName: build # Name of the job in the build workflow
+        ref: ${{ github.sha }}
+        timeoutSeconds: 900 # Timeout in seconds (15 min)
+
+    - name: Create KinD Cluster
+      # https://github.com/helm/kind-action/releases
+      uses: helm/kind-action@v1.12.0
+      with:
+        # https://github.com/kubernetes-sigs/kind/releases
+        version: v0.27.0
+        cluster_name: my-kind-cluster
+        wait: 60s
+        kubectl_version: v1.32.2
+        registry: false
+        # config: path/to/your/kind-config.yaml
+
+    - name: Verify Cluster
+      run: |
+        kubectl cluster-info --context kind-${{ steps.kind.outputs.cluster-name }}
+        kubectl get nodes
+        kubectl version
+
+    - name: Load container image
+      shell: bash
+      run: |
+        docker image ls
+        kind load docker-image ghcr.io/${{ github.repository }}:${{ github.ref_name }}
+        docker exec ${{ steps.kind.outputs.cluster-name }}-control-plane crictl images
+
+      # https://github.com/bats-core/bats-action
+    - name: Setup Bats and bats libs
+      id: setup-bats
+      uses: bats-core/bats-action@3.0.0
+      with:
+        # helper libraries are already part of the repo
+        support-install: false
+        assert-install: false
+        detik-install: false
+        file-install: false
+
+    - name: Deploy Minio for local S3 endpoint
+      shell: bash
+      run: |
+        e2e-tests/deploy-minio.sh
+
+    - name: Run e2e tests
+      shell: bash
+      env:
+       BATS_LIB_PATH: ${{ steps.setup-bats.outputs.lib-path }}
+       TERM: xterm
+       IMAGE_TAG: ${{ github.ref_name }}
+      run: |
+        cd e2e-tests
+        # temporary until bats-detik comes with this file
+        echo 'source "$(dirname "${BASH_SOURCE[0]}")/lib/utils.bash"' > bats-detik/load.bash
+        echo 'source "$(dirname "${BASH_SOURCE[0]}")/lib/detik.bash"' >> bats-detik/load.bash
+        echo 'source "$(dirname "${BASH_SOURCE[0]}")/lib/linter.bash"' >> bats-detik/load.bash
+
+        bats 01_basic.bats

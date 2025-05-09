@@ -39,7 +39,7 @@ spec:
                 - "restic-k8s"
                 - "forget"
                 - "--namespace={{ .Release.Namespace }}"
-                - "--config-secret={{ include "restic-k8s.fullname" . }}-restic-config"
+                - "--config-secret={{ include "restic-k8s.fullname" . }}-config"
                 - "--image={{ .Values.image.repository }}:{{ .Values.image.tag }}"
                 {{- range $key, $value := .Values.restic.forget.keepPolicy }}
                 - "--keep-{{$key}}={{$value}}"
