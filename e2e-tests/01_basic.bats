@@ -24,9 +24,11 @@ teardown() {
 
 # will be run after all test cases in the file (after the last test)
 teardown_file() {
-    if [[ "$CUSTOM_BATS_SKIP_TEARDOWN" != "true" ]]; then
-        kubectl delete --wait=true --ignore-not-found=true namespace "${NAMESPACE}" app-{1..3}
+    if [[ "$CUSTOM_BATS_SKIP_TEARDOWN" == "true" ]]; then
+        return 0
     fi
+
+    kubectl delete --wait=true --ignore-not-found=true namespace "${NAMESPACE}" app-{1..3}
 }
 
 @test "Deploy Helm chart" {

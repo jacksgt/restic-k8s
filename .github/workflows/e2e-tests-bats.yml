@@ -1,0 +1,62 @@
+name: End-to-end tests with BATS
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/**'
+      - 'chart/**'
+      - 'e2e-tests/**'
+      - 'pyproject.toml'
+      - 'restic_k8s.py'
+
+  workflow_dispatch:  # Manual trigger option
+
+jobs:
+  build_and_test:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Create KinD Cluster
+      uses: helm/kind-action@v1.10.0
+      with:
+        # https://github.com/kubernetes-sigs/kind/releases
+        version: v0.27.0
+        cluster_name: my-kind-cluster
+        wait: 60s
+        kubectl_version: v1.32.2
+        registry: false
+        # config: path/to/your/kind-config.yaml
+
+    - name: Verify Cluster
+      run: |
+        kubectl cluster-info --context kind-${{ steps.kind.outputs.cluster-name || 'my-kind-cluster' }}
+        kubectl get nodes
+        kubectl version
+
+      # https://github.com/bats-core/bats-action
+    - name: Setup Bats and bats libs
+      id: setup-bats
+      uses: bats-core/bats-action@3.0.0
+      with:
+        # helper libraries are already part of the repo
+        support-install: false
+        assert-install: false
+        detik-install: false
+        file-install: false
+
+    - name: Deploy Minio for local S3 endpoint
+      shell: bash
+      run: |
+        e2e-tests/deploy-minio.sh
+
+    - name: Run e2e tests
+      shell: bash
+      env:
+       BATS_LIB_PATH: ${{ steps.setup-bats.outputs.lib-path }}
+       TERM: xterm
+       IMAGE_TAG: ${{ github.ref_name }}
+      run: |
+        cd e2e-tests
+        bats 01_basic.bats
