@@ -2,8 +2,9 @@ name: Build and Push Container Images
 
 on:
   push:
-    tags:
-      - '*'
+    tags: '*'
+  repository_dispatch:
+    types: [trigger-build]
 
 jobs:
   build:
@@ -27,17 +28,17 @@ jobs:
         with:
           context: .
           file: ./Containerfile
-          push: {{ github.ref_type == "tag" }}
+          push: ${{ github.ref_type == "tag" }}
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
 
       - name: Install Helm
         uses: azure/setup-helm@v3
-        if: {{ github.ref_type == "tag" }}
+        if: ${{ github.ref_type == "tag" }}
 
         # https://helm.sh/docs/topics/registries/
       - name: Package and Push Chart as OCI artifact
-        if: {{ github.ref_type == "tag" }}
+        if: ${{ github.ref_type == "tag" }}
         run: |
           sed -i -E 's/appVersion: (.+)$/appVersion: ${{ github.ref_name }}/' chart/Chart.yaml
           helm package ./chart
