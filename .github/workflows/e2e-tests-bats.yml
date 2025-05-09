@@ -17,9 +17,12 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        submodules: true
 
     - name: Create KinD Cluster
-      uses: helm/kind-action@v1.10.0
+      # https://github.com/helm/kind-action/releases
+      uses: helm/kind-action@v1.12.0
       with:
         # https://github.com/kubernetes-sigs/kind/releases
         version: v0.27.0
@@ -59,4 +62,9 @@ jobs:
        IMAGE_TAG: ${{ github.ref_name }}
       run: |
         cd e2e-tests
+        # temporary until bats-detik comes with this file
+        echo 'source "$(dirname "${BASH_SOURCE[0]}")/lib/utils.bash"' > bats-detik/load.bash
+        echo 'source "$(dirname "${BASH_SOURCE[0]}")/lib/detik.bash"' >> bats-detik/load.bash
+        echo 'source "$(dirname "${BASH_SOURCE[0]}")/lib/linter.bash"' >> bats-detik/load.bash
+
         bats 01_basic.bats
