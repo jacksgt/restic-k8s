@@ -1,0 +1,9 @@
+[submodule "e2e-tests/bats-support"]
+	path = e2e-tests/bats-support
+	url = https://github.com/bats-core/bats-support
+[submodule "e2e-tests/bats-assert"]
+	path = e2e-tests/bats-assert
+	url = https://github.com/bats-core/bats-assert
+[submodule "e2e-tests/bats-detik"]
+	path = e2e-tests/bats-detik
+	url = https://github.com/bats-core/bats-detik
