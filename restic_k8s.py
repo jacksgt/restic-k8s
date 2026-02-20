@@ -4,7 +4,7 @@ __version__ = "0.0.0-dev"
 __commit__ = "[unknown]"
 
 import argparse
-from base64 import b64decode
+import base64
 import subprocess  # see also: https://pypi.org/project/python-shell/
 import time
 from dataclasses import dataclass, field
@@ -427,14 +427,12 @@ def get_env_from_secret(secret_name: str, namespace_name: str) -> dict[str, str]
     secret: Secret = Secret.get(secret_name, namespace=namespace_name)
     env: dict[str,str] = {}
     for k, v in secret.raw["data"].items():
-        env[str(k)] = str(b64decode(v))
+        env[str(k)] = b64_to_str(v)
 
     return env
 
 
 def initialize_repo():
-    # TODO: probably this should be run in the container as well so it uses the same restic version
-
     # https://restic.readthedocs.io/en/stable/030_preparing_a_new_repo.html
     print("Ensuring repository backend is initialized")
     env = get_env_from_secret(BACKUP_SECRET_NAME, BACKUP_NAMESPACE)
@@ -550,6 +548,9 @@ def get_matching_pvcs(label_selector) -> list[PersistentVolumeClaim]:
     return kr8s.get(
         "persistentvolumeclaims", namespace=kr8s.ALL, label_selector=label_selector
     ) # pyright: ignore[reportReturnType]
+
+def b64_to_str(data: bytes) -> str:
+    return base64.b64decode(data).decode('utf-8')
 
 
 def main(args):
