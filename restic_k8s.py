@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-__version__ = "0.5.0"
+__version__ = "0.5.1"
 
 import argparse
 from base64 import b64decode
@@ -528,8 +528,9 @@ def restic_backup(pvc: PersistentVolumeClaim, restic_dry_run: bool):
         if not DRY_RUN:
             backup_mounted_pvc_from_pod(pvc, pv, mounting_pod, restic_config)
     else:
-        raise Exception(
-            f"Unable to determine backup strategy for PVC {pvc.namespace}/{pvc.name}"
+        print(
+            f"WARNING: unable to determine backup strategy for PVC {pvc.namespace}/{pvc.name}:",
+            f"not a local volume, not a hostPath volume and no pod currently mounting the PVC."
         )
 
     if not DRY_RUN:
