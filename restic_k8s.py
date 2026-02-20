@@ -323,7 +323,7 @@ def run_pod(pod: Pod):
     # TODO: need to catch other conditions such as Pod Error, ImagePullBackOff, InvalidPodConfiguration ...
     pod.wait("condition=Ready=true")
 
-    for line in pod.logs(follow=True, timeout=0):
+    for line in pod.logs(follow=True, timeout=None):
         print("> ", line)
 
     pod.wait("condition=Ready=false")
