@@ -30,13 +30,3 @@ jobs:
           push: true
           tags: |
             ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-
-      - name: Install Helm
-        uses: azure/setup-helm@v3
-
-        # https://helm.sh/docs/topics/registries/
-      - name: Package and Push Chart as OCI artifact
-        run: |
-          sed -i -E 's/appVersion: (.+)$/appVersion: ${{ github.ref_name }}/' chart/Chart.yaml
-          helm package ./chart
-          helm push ./chart-*.tgz oci://ghcr.io/${{ github.repository }}/charts
