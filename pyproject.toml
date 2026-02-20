@@ -10,7 +10,9 @@ authors = [
     {name = "Jack Henschel", email = "jackdev@mailbox.org"}
 ]
 dependencies = [
-    "kr8s==0.20.6",
+    "kr8s==0.20.15",
+    # Required by kr8s for port-forwarding (asyncio)
+    "sniffio==1.3.1",
 ]
 
 [project.optional-dependencies]
