@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
-__version__ = "0.5.1"
+__version__ = "0.0.0-dev"
+__commit__ = "[unknown]"
 
 import argparse
 from base64 import b64decode
@@ -764,7 +765,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--version",
         action="version",
-        version=f"%(prog)s (version {__version__})",
+        version=f"%(prog)s (version {__version__}, built from commit {__commit__})",
     )
 
     main(parser.parse_args())

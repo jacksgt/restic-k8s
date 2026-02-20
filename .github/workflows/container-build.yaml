@@ -22,6 +22,13 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Set app version
+        run: |
+          sed -i -E 's/__version__ = (.+)$/__version__ = "${{ github.ref_name }}"/' restic_k8s.py
+          sed -i -E 's/__commit__ = (.+)$/__commit__ = "${{ github.sha }}"/' restic_k8s.py
+          # print result for debugging
+          head restic_k8s.py
+
       - name: Build and push container image
         uses: docker/build-push-action@v4
         with:
