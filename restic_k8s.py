@@ -240,6 +240,7 @@ def base_pod(name: str, namespace: str, labels: dict[str,str], cmd: str) -> Pod:
                         "image": BACKUP_IMAGE,
                         "volumeMounts": [
                             {"name": "tmp", "mountPath": "/tmp", "readOnly": False},
+                            {"name": "restic-cache", "mountPath": "/var/cache/restic-k8s", "readOnly": False},
                         ],
                         # TODO: set appropriate GOMAXPROCS
                         # https://restic.readthedocs.io/en/stable/047_tuning_backup_parameters.html#cpu-usage
@@ -252,6 +253,9 @@ def base_pod(name: str, namespace: str, labels: dict[str,str], cmd: str) -> Pod:
                             # show update messages every 5 minutes,
                             # https://github.com/restic/restic/issues/2706#issuecomment-752182199
                             {"name": "RESTIC_PROGRESS_FPS", "value": "0.0033"},
+                            # Use a hostPath volume for caching so each pod can re-use the metadata information
+                            # https://restic.readthedocs.io/en/stable/manual_rest.html#caching
+                            {"name": "RESTIC_CACHE_DIR", "value": "/var/cache/restic-k8s"},
                         ],
                         "command": ["sh", "-cex", cmd],
                         "terminationMessagePolicy": "FallbackToLogsOnError",
@@ -259,6 +263,7 @@ def base_pod(name: str, namespace: str, labels: dict[str,str], cmd: str) -> Pod:
                 ],
                 "volumes": [
                     {"name": "tmp", "emptyDir": {}},
+                    {"name": "restic-cache", "hostPath": {"path": "/var/cache/restic-k8s", "type": "DirectoryOrCreate"}},
                 ],
                 # "terminationGracePeriodSeconds": 5,
                 "restartPolicy": "Never",
