@@ -223,6 +223,8 @@ def build_restic_forget_cmd(config: ResticForgetConfig, pvc: PersistentVolumeCla
 
 
 def base_pod(name: str, namespace: str, labels: dict[str,str], cmd: str) -> Pod:
+    # TODO: set owner reference on the pod to job currently running
+    # https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/
     return Pod(
         {
             "apiVersion": "v1",
@@ -610,6 +612,7 @@ def main(args):
             )
             for pod in pods:
                 pod.delete()
+                pod.wait("delete")
 
     elif args.action == "forget":
         config = ResticForgetConfig(
