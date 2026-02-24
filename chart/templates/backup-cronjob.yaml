@@ -48,6 +48,15 @@ spec:
                 {{- toYaml .Values.securityContext | nindent 16 }}
               image: {{ include "restic-k8s.image" . }}
               imagePullPolicy: {{ .Values.image.pullPolicy }}
+              env:
+                - name: POD_NAME
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.name
+                - name: POD_NAMESPACE
+                  valueFrom:
+                    fieldRef:
+                      fieldPath: metadata.namespace
               resources:
                 {{- toYaml .Values.resources | nindent 16 }}
           {{- with .Values.nodeSelector }}

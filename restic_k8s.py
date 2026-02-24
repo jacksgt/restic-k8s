@@ -9,7 +9,7 @@ import subprocess  # see also: https://pypi.org/project/python-shell/
 import time
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
-# import os
+import os
 import json
 import random
 import string
@@ -27,16 +27,18 @@ DRY_RUN = False
 BACKUP_NAMESPACE: str = "restic-k8s"
 BACKUP_SECRET_NAME: str = "backup-credentials"
 BACKUP_IMAGE: str = "docker.io/restic/restic:0.16.0"
+BACKUP_RUNNER_SA: str = "restic-k8s-runner"
 VOLUME_BACKUP_TIMEOUT: int = 3600  # 1h
 EXECUTION_ID: str = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+OWNER_REFERENCE: dict = {}
 
 # Restic integration can only backup volumes that are mounted by a pod and not directly from the PVC.
 # For orphan PVC/PV pairs (without running pods), some Velero users overcame this limitation running a staging pod
 # (i.e. a busybox or alpine container with an infinite sleep) to mount these PVC/PV pairs prior taking a Velero backup.
 # https://velero.io/docs/v1.9/restic/
 
-# type alias
-CleanupFunc = Callable[[None],None]
+# function type alias
+CleanupFunc = Callable[[], None]
 
 def gen_random_chars(length: int) -> str:
     letters = string.ascii_lowercase + string.digits
@@ -222,9 +224,55 @@ def build_restic_forget_cmd(config: ResticForgetConfig, pvc: PersistentVolumeCla
     return restic_cmd
 
 
+def get_owner_job_reference() -> dict:
+    """
+    Discovers the Kubernetes Job that owns the currently running pod and returns
+    an ownerReference dict for it. Returns None (with a warning) if the Job
+    cannot be determined, e.g. when running outside of a Kubernetes Job.
+
+    POD_NAME and POD_NAMESPACE should be injected via Downward API
+    https://kubernetes.io/docs/concepts/workloads/pods/downward-api/
+    """
+    pod_name = os.environ.get("POD_NAME")
+    pod_namespace = os.environ.get("POD_NAMESPACE")
+
+    if not pod_name or not pod_namespace:
+        print(
+            "Warning: POD_NAME or POD_NAMESPACE not set; "
+            "child pods will not have an ownerReference to the parent Job."
+        )
+        return {}
+
+    try:
+        current_pod = Pod.get(pod_name, namespace=pod_namespace)
+        owner_refs = current_pod.metadata.get("ownerReferences", [])
+        # Return the first Job owner reference, or None if there isn't one.
+        job_ref = next((r for r in owner_refs if r.get("kind") == "Job"), None)
+        if job_ref is None:
+            print(
+                "Warning: current pod has no Job ownerReference; "
+                "child pods will not have an ownerReference to the parent Job."
+            )
+            return {}
+
+        return {
+            "apiVersion": "batch/v1",
+            "kind": "Job",
+            "name": job_ref["name"],
+            "uid": job_ref["uid"],
+            "controller": True,
+            "blockOwnerDeletion": True,
+        }
+    except Exception as e:
+        print(f"Warning: could not determine owner Job: {e}; child pods will not have an ownerReference.")
+        return {}
+
+
 def base_pod(name: str, namespace: str, labels: dict[str,str], cmd: str) -> Pod:
-    # TODO: set owner reference on the pod to job currently running
+    # Set an ownerReference to the Job that is running this script so that
+    # Kubernetes automatically garbage-collects these pods when the Job is deleted.
     # https://kubernetes.io/docs/concepts/overview/working-with-objects/owners-dependents/
+    owner_references = [OWNER_REFERENCE]
     return Pod(
         {
             "apiVersion": "v1",
@@ -233,9 +281,10 @@ def base_pod(name: str, namespace: str, labels: dict[str,str], cmd: str) -> Pod:
                 "name": name,
                 "namespace": namespace,
                 "labels": labels,
+                **({"ownerReferences": owner_references} if owner_references else {}),
             },
             "spec": {
-                "serviceAccountName": "restic-k8s-runner",  # TODO: make this configurable
+                "serviceAccountName": BACKUP_RUNNER_SA,
                 "containers": [
                     {
                         "name": "restic",
@@ -271,6 +320,7 @@ def base_pod(name: str, namespace: str, labels: dict[str,str], cmd: str) -> Pod:
                 "restartPolicy": "Never",
                 "activeDeadlineSeconds": VOLUME_BACKUP_TIMEOUT,
                 "enableServiceLinks": False,
+                # this pod does not need access to the Kubernetes API
                 "automountServiceAccountToken": False,
             },
         }
@@ -511,8 +561,6 @@ def restic_backup(pvc: PersistentVolumeClaim, restic_dry_run: bool):
 
     restic_config = ResticBackupConfig(
         dry_run=restic_dry_run,
-        # repository = os.environ["RESTIC_REPOSITORY"],
-        # password = os.environ["RESTIC_PASSWORD"],
         tags=[
             f"namespace={pvc.namespace}",
             f"persistentvolumeclaim={pvc.name}",
@@ -583,6 +631,9 @@ def main(args):
     global BACKUP_IMAGE
     BACKUP_IMAGE = args.image
 
+    global OWNER_REFERENCE
+    OWNER_REFERENCE = get_owner_job_reference()
+
     if args.skip_repo_init is True:
         print("Warning: skipping repository initialization")
     else:
@@ -602,6 +653,7 @@ def main(args):
         # run restic backup for each PVC
         for pvc in get_matching_pvcs(pvc_label_selectors):
             restic_backup(pvc, args.restic_dry_run)
+            print("---------------------------------------------")
 
         if args.cleanup:
             pods = kr8s.get(
@@ -613,6 +665,7 @@ def main(args):
             for pod in pods:
                 pod.delete()
                 pod.wait("delete")
+                print(f"Pod {pod.name} deleted")
 
     elif args.action == "forget":
         config = ResticForgetConfig(
