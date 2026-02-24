@@ -57,3 +57,10 @@ Full image path
 {{- define "restic-k8s.image" -}}
 {{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}
 {{- end }}
+
+{{/*
+Shared config secret name
+*/}}
+{{- define "restic-k8s.configSecretName" -}}
+{{ include "restic-k8s.fullname" . }}-config
+{{- end }}

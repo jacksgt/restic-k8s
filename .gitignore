@@ -1,2 +1,3 @@
 *.secret.yaml
 .env
+restic_k8s.egg-info/

@@ -39,7 +39,7 @@ spec:
                 - "restic-k8s"
                 - "backup"
                 - "--namespace={{ .Release.Namespace }}"
-                - "--config-secret={{ include "restic-k8s.fullname" . }}-config"
+                - "--config-secret={{ include "restic-k8s.configSecretName" . }}"
                 - "--image={{ .Values.image.repository }}:{{ .Values.image.tag }}"
                 {{- if .Values.restic.backup.dryRun }}
                 - "--restic-dry-run"

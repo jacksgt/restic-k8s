@@ -39,7 +39,7 @@ spec:
                 - "restic-k8s"
                 - "prune"
                 - "--namespace={{ .Release.Namespace }}"
-                - "--config-secret={{ include "restic-k8s.fullname" . }}-restic-config"
+                - "--config-secret={{ include "restic-k8s.configSecretName" . }}"
                 - "--image={{ .Values.image.repository }}:{{ .Values.image.tag }}"
                 {{- if .Values.restic.prune.dryRun }}
                 - "--restic-dry-run"
