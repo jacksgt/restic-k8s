@@ -1,0 +1,67 @@
+restic:
+  config:
+    RESTIC_REPOSITORY: sftp://kalo@192.168.1.26:/backups/k3s-vols/
+
+image:
+  repository: "ghcr.io/kalatabe/restic-k8s"
+  tag: "0.6.2-rc0"
+  pullPolicy: Always
+
+extraVolumes:
+  - name: wireguard-config
+    secret:
+      secretName: wireguard-config
+      items:
+        - key: wg0
+          mode: 0600
+          path: wg0.conf
+
+  - name: ssh-known-hosts
+    emptyDir: { }
+
+  - name: ssh-key
+    secret:
+      secretName: ssh-key
+      defaultMode: 0600
+      items:
+        - key: KEY
+          path: id_ed25519
+
+extraVolumeMounts:
+ - name: wireguard-config
+   mountPath: /data
+   readOnly: true
+
+ - name: ssh-known-hosts
+   mountPath: /root/.ssh/known_hosts
+   subPath: known_hosts
+
+ - name: ssh-key
+   mountPath: /root/.ssh/id_ed25519
+   subPath: id_ed25519
+
+extraInitContainers:
+  - name: wireguard-connector
+    image: alpine@sha256:4d889c14e7d5a73929ab00be2ef8ff22437e7cbc545931e52554a7b00e123d8b
+    command:
+      - sh
+    args:
+      - "-c"
+      - "apk add -U wireguard-tools && wg-quick up wg0"
+    volumeMounts:
+      - mountPath: /etc/wireguard
+        name: wireguard-config
+    securityContext:
+      capabilities:
+        add:
+          - NET_ADMIN
+
+  - name: ssh-keyscanner
+    image: alpine:latest
+    command:
+      - sh
+      - -c
+      - "apk add -U openssh-client && ssh-keyscan 192.168.1.26 > /ssh/known_hosts"
+    volumeMounts:
+      - name: ssh-known-hosts
+        mountPath: /ssh

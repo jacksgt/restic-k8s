@@ -11,7 +11,6 @@ spec:
   concurrencyPolicy: Forbid
   jobTemplate:
     metadata:
-      creationTimestamp: null
       labels:
         {{- include "restic-k8s.labels" . | nindent 8 }}
         app.kubernetes.io/component: "check"
@@ -33,6 +32,15 @@ spec:
           automountServiceAccountToken: true
           securityContext:
             {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          {{- if or .Values.extraCheckInitContainers .Values.extraInitContainers }}
+          initContainers:
+            {{- if .Values.extraCheckInitContainers }}
+            {{- toYaml .Values.extraCheckInitContainers | nindent 12 }}
+            {{- end }}
+            {{- if .Values.extraInitContainers }}
+            {{- toYaml .Values.extraInitContainers | nindent 12 }}
+            {{- end }}
+          {{- end }}
           containers:
             - name: "restic"
               command:
@@ -57,6 +65,30 @@ spec:
                       fieldPath: metadata.namespace
               resources:
                 {{- toYaml .Values.resources | nindent 16 }}
+              {{- if or .Values.extraCheckVolumeMounts .Values.extraVolumeMounts }}
+              volumeMounts:
+                {{- if .Values.extraCheckVolumeMounts }}
+                {{- toYaml .Values.extraCheckVolumeMounts | nindent 16 }}
+                {{- end }}
+                {{- if .Values.extraVolumeMounts }}
+                {{- toYaml .Values.extraVolumeMounts | nindent 16 }}
+                {{- end }}
+              {{- end }}
+            {{- if .Values.extraCheckContainers }}
+            {{- toYaml .Values.extraCheckContainers | nindent 12 }}
+            {{- end }}
+            {{- if .Values.extraContainers }}
+            {{- toYaml .Values.extraContainers | nindent 12 }}
+            {{- end }}
+          {{- if or .Values.extraCheckVolumes .Values.extraVolumes }}
+          volumes:
+            {{- if .Values.extraCheckVolumes }}
+            {{- toYaml .Values.extraCheckVolumes | nindent 12 }}
+            {{- end }}
+            {{- if .Values.extraVolumes }}
+            {{- toYaml .Values.extraVolumes | nindent 12 }}
+            {{- end }}
+          {{- end }}
           {{- with .Values.nodeSelector }}
           nodeSelector:
             {{- toYaml . | nindent 12 }}

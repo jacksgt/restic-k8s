@@ -493,11 +493,13 @@ def initialize_repo():
     # https://restic.readthedocs.io/en/stable/030_preparing_a_new_repo.html
     print("Ensuring repository backend is initialized")
     env = get_env_from_secret(BACKUP_SECRET_NAME, BACKUP_NAMESPACE)
+    process_env = os.environ.copy()
+    process_env.update(env)
     proc = subprocess.run(
         ["restic snapshots --no-cache"],
         shell=True,
         check=False,
-        env=env,
+        env=process_env,
         capture_output=True,
     )
     if proc.returncode == 0:

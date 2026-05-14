@@ -4,6 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "restic-k8s"
+requires-python = ">=3.13"
 dynamic = ["version"]
 description = "Straightforward File System Backups of Kubernetes Volumes attached to Pods. No CRDs, no daemons. Uses restic under the hood for fast, reliable and encrypted backups that can be uploaded to a wide variety of storage providers."
 authors = [
