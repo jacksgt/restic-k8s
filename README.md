@@ -47,7 +47,7 @@ For more information about setting up the storage backend (`RESTIC_REPOSITORY`),
 
 ```sh
 helm install restic-k8s oci://ghcr.io/jacksgt/restic-k8s --version 0.5.0 \
-    --set restic.config.RESTIC_REPOSITORY="sftp:user@example.com:/srv/restic-repo"
+    --set restic.config.RESTIC_REPOSITORY="sftp:user@example.com:/srv/restic-repo" \
     --set restic.config.RESTIC_PASSWORD="0xdeadbeef"
 ```
 
