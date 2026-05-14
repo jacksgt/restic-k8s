@@ -28,9 +28,10 @@ jobs:
       - name: Install Helm
         uses: azure/setup-helm@v3
 
-      - name: Set Helm appVersion based on current tag
+      - name: Set Helm appVersion and Chart version based on current tag
         run: |
           sed -i -E 's/appVersion: (.+)$/appVersion: ${{ github.ref_name }}/' chart/Chart.yaml
+          sed -i -E 's/version: (.+)$/version: ${{ github.ref_name }}/' chart/Chart.yaml
 
       # https://helm.sh/docs/topics/registries/
       - name: Package and Push Chart as OCI artifact
