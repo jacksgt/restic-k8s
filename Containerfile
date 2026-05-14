@@ -1,4 +1,4 @@
-FROM docker.io/library/debian:12
+FROM debian:13-slim
 
 # Avoid stdout text buffering for Python applications
 ENV PYTHONUNBUFFERED=true
@@ -8,7 +8,9 @@ RUN apt update && apt install -y --no-install-recommends \
     curl \
     procps \
     python3 \
-    python3-pip
+    python3-pip \
+    openssh-client \
+    && apt clean
 
 # Install restic
 # https://github.com/restic/restic/releases
