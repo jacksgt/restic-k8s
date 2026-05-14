@@ -90,3 +90,69 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# Additional containers to create in the backup job's pods
+extraBackupContainers: {}
+# Example:
+# if the backup target is behind a VPN and you have wireguard config available, you can create a sidecar container
+# which initializes the wireguard interface, allowing the pod to communicate with the VPN LAN
+#extraBackupContainers:
+#- name: vpn-client
+#  image: alpine:latest
+#  command: 'apk add -U wireguard-tools && wg-quick up wg0'
+#  volumeMounts:
+#    - name: data
+#      path: /data
+
+# Additional containers to create in the check job's pods
+extraCheckContainers: {}
+
+# Additional containers to create in the forget job's pods
+extraForgetContainers: {}
+
+# Additional containers to create in the prune job's pods
+extraPruneContainers: {}
+
+# Extra containers to create in all job pods (backup, check, forget, prune),
+# in addition to any job-specific extra*Containers above
+extraContainers: {}
+
+# Additional init containers for each job's pods
+extraBackupInitContainers: {}
+extraCheckInitContainers: {}
+extraForgetInitContainers: {}
+extraPruneInitContainers: {}
+
+# Extra init containers for all job pods (backup, check, forget, prune),
+# in addition to any job-specific extra*InitContainers above
+extraInitContainers: {}
+
+# Additional volumes for each job's pods
+extraBackupVolumes: {}
+# Example:
+# extraBackupVolumes:
+#   - name: data
+#     persistentVolumeClaim:
+#       claimName: my-data-pvc
+extraCheckVolumes: {}
+extraForgetVolumes: {}
+extraPruneVolumes: {}
+
+# Extra volumes for all job pods (backup, check, forget, prune),
+# in addition to any job-specific extra*Volumes above
+extraVolumes: {}
+
+# Additional volume mounts for the restic container in each job's pods
+extraBackupVolumeMounts: {}
+# Example:
+# extraBackupVolumeMounts:
+#   - name: data
+#     mountPath: /data
+#     readOnly: true
+extraCheckVolumeMounts: {}
+extraForgetVolumeMounts: {}
+extraPruneVolumeMounts: {}
+
+# Extra volume mounts for the restic container in all job pods (backup, check, forget, prune),
+# in addition to any job-specific extra*VolumeMounts above
+extraVolumeMounts: {}
