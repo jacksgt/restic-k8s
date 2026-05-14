@@ -495,7 +495,6 @@ def initialize_repo():
     env = get_env_from_secret(BACKUP_SECRET_NAME, BACKUP_NAMESPACE)
     process_env = os.environ.copy()
     process_env.update(env)
-    print(process_env)
     proc = subprocess.run(
         ["restic snapshots --no-cache"],
         shell=True,
