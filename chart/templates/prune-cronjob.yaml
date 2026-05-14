@@ -11,7 +11,6 @@ spec:
   concurrencyPolicy: Forbid
   jobTemplate:
     metadata:
-      creationTimestamp: null
       labels:
         {{- include "restic-k8s.labels" . | nindent 8 }}
         app.kubernetes.io/component: "prune"
