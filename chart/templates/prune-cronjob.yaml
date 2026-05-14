@@ -32,6 +32,15 @@ spec:
           automountServiceAccountToken: true
           securityContext:
             {{- toYaml .Values.podSecurityContext | nindent 12 }}
+          {{- if or .Values.extraPruneInitContainers .Values.extraInitContainers }}
+          initContainers:
+            {{- if .Values.extraPruneInitContainers }}
+            {{- toYaml .Values.extraPruneInitContainers | nindent 12 }}
+            {{- end }}
+            {{- if .Values.extraInitContainers }}
+            {{- toYaml .Values.extraInitContainers | nindent 12 }}
+            {{- end }}
+          {{- end }}
           containers:
             - name: "restic"
               command:
@@ -58,6 +67,12 @@ spec:
                       fieldPath: metadata.namespace
               resources:
                 {{- toYaml .Values.resources | nindent 16 }}
+            {{- if .Values.extraPruneContainers }}
+            {{- toYaml .Values.extraPruneContainers | nindent 12 }}
+            {{- end }}
+            {{- if .Values.extraContainers }}
+            {{- toYaml .Values.extraContainers | nindent 12 }}
+            {{- end }}
           {{- with .Values.nodeSelector }}
           nodeSelector:
             {{- toYaml . | nindent 12 }}
