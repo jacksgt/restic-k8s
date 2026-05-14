@@ -67,12 +67,30 @@ spec:
                       fieldPath: metadata.namespace
               resources:
                 {{- toYaml .Values.resources | nindent 16 }}
+              {{- if or .Values.extraBackupVolumeMounts .Values.extraVolumeMounts }}
+              volumeMounts:
+                {{- if .Values.extraBackupVolumeMounts }}
+                {{- toYaml .Values.extraBackupVolumeMounts | nindent 16 }}
+                {{- end }}
+                {{- if .Values.extraVolumeMounts }}
+                {{- toYaml .Values.extraVolumeMounts | nindent 16 }}
+                {{- end }}
+              {{- end }}
             {{- if .Values.extraBackupContainers }}
             {{- toYaml .Values.extraBackupContainers | nindent 12 }}
             {{- end }}
             {{- if .Values.extraContainers }}
             {{- toYaml .Values.extraContainers | nindent 12 }}
             {{- end }}
+          {{- if or .Values.extraBackupVolumes .Values.extraVolumes }}
+          volumes:
+            {{- if .Values.extraBackupVolumes }}
+            {{- toYaml .Values.extraBackupVolumes | nindent 12 }}
+            {{- end }}
+            {{- if .Values.extraVolumes }}
+            {{- toYaml .Values.extraVolumes | nindent 12 }}
+            {{- end }}
+          {{- end }}
           {{- with .Values.nodeSelector }}
           nodeSelector:
             {{- toYaml . | nindent 12 }}

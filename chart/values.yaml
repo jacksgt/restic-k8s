@@ -126,3 +126,33 @@ extraPruneInitContainers: {}
 # Extra init containers for all job pods (backup, check, forget, prune),
 # in addition to any job-specific extra*InitContainers above
 extraInitContainers: {}
+
+# Additional volumes for each job's pods
+extraBackupVolumes: {}
+# Example:
+# extraBackupVolumes:
+#   - name: data
+#     persistentVolumeClaim:
+#       claimName: my-data-pvc
+extraCheckVolumes: {}
+extraForgetVolumes: {}
+extraPruneVolumes: {}
+
+# Extra volumes for all job pods (backup, check, forget, prune),
+# in addition to any job-specific extra*Volumes above
+extraVolumes: {}
+
+# Additional volume mounts for the restic container in each job's pods
+extraBackupVolumeMounts: {}
+# Example:
+# extraBackupVolumeMounts:
+#   - name: data
+#     mountPath: /data
+#     readOnly: true
+extraCheckVolumeMounts: {}
+extraForgetVolumeMounts: {}
+extraPruneVolumeMounts: {}
+
+# Extra volume mounts for the restic container in all job pods (backup, check, forget, prune),
+# in addition to any job-specific extra*VolumeMounts above
+extraVolumeMounts: {}
